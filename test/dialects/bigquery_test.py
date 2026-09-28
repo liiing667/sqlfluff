@@ -186,3 +186,49 @@ def test_semi_structured_wildcard_parses(sql):
     """A wildcard ending an accessor chain parses, with EXCEPT/REPLACE."""
     parsed = Linter(dialect="bigquery").parse_string(sql)
     assert not parsed.violations
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        # A full select statement followed by a pipe chain.
+        "SELECT a, COUNT(*) AS c FROM t\n"
+        "|> WHERE a > 10\n"
+        "|> GROUP BY a\n"
+        "|> ORDER BY c DESC",
+        # Standalone GROUP BY pipe operator.
+        "FROM Produce\n|> GROUP BY category, item",
+        # Standalone GROUP AND ORDER BY pipe operator.
+        "FROM Produce\n|> GROUP AND ORDER BY category, item DESC",
+    ],
+)
+def test_pipe_statement_group_by_parses(sql):
+    """GROUP BY works as a standalone pipe operator."""
+    parsed = Linter(dialect="bigquery").parse_string(sql)
+    assert not parsed.violations
+
+
+def test_pipe_statement_positions_and_types():
+    """Pipe chains keep operator positions and standard clause types."""
+    sql = (
+        "SELECT a, COUNT(*) AS c FROM t\n"
+        "|> WHERE a > 10\n"
+        "|> GROUP BY a\n"
+        "|> ORDER BY c DESC\n"
+    )
+    parsed = Linter(dialect="bigquery").parse_string(sql)
+    assert not parsed.violations
+    tree = parsed.tree
+    # Each pipe operator keeps its own position in the source.
+    operators = list(tree.recursive_crawl("pipe_operator"))
+    assert [
+        (op.pos_marker.line_no, op.pos_marker.line_pos) for op in operators
+    ] == [(2, 1), (3, 1), (4, 1)]
+    # Pipe operators wrap standard clause segments so that existing rules
+    # (layout, aliasing, ...) apply unchanged.
+    clauses = list(tree.recursive_crawl("pipe_operator_clause"))
+    assert [clause.segments[-1].type for clause in clauses] == [
+        "where_clause",
+        "groupby_clause",
+        "orderby_clause",
+    ]

@@ -3748,6 +3748,8 @@ class PipeOperatorClauseSegment(BaseSegment):
             Ref("WhereClauseSegment"),
             Ref("LimitClauseSegment"),
             Ref("OrderByClauseSegment"),
+            Ref("GroupByClauseSegment"),
+            Ref("GroupAndOrderByClauseSegment"),
             Ref("AggregateClauseSegment"),
             Ref("SetOperatorClauseSegment"),
             Ref("JoinClauseSegment"),

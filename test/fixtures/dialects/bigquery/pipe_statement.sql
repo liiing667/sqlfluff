@@ -181,3 +181,14 @@ FROM (
 (FROM foo |> WHERE sales >= 3)
 UNION ALL
 SELECT item, sales FROM bar;
+
+SELECT a, COUNT(*) AS c FROM t
+|> WHERE a > 10
+|> GROUP BY a
+|> ORDER BY c DESC;
+
+FROM Produce
+|> GROUP BY category, item;
+
+FROM Produce
+|> GROUP AND ORDER BY category, item DESC;
