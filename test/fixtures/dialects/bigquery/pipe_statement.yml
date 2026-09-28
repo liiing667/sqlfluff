@@ -3,7 +3,7 @@
 # computed by SQLFluff when running the tests. Please run
 # `python test/generate_parse_fixture_yml.py`  to generate them after adding or
 # altering SQL files.
-_hash: 903cd5f8bc6f71f5c3875bcb50788a9ae2ecf4b6b0ef344423f67dfe9e065c85
+_hash: ae40118745514f81b0055256006ae8ea8c83514eb4450fec240913eea5ade389
 file:
 - statement:
     pipe_statement:
@@ -1883,4 +1883,130 @@ file:
               table_expression:
                 table_reference:
                   naked_identifier: bar
+- statement_terminator: ;
+- statement:
+    pipe_statement:
+    - select_statement:
+        select_clause:
+        - keyword: SELECT
+        - select_clause_element:
+            column_reference:
+              naked_identifier: a
+        - comma: ','
+        - select_clause_element:
+            function:
+              function_name:
+                function_name_identifier: COUNT
+              function_contents:
+                bracketed:
+                  start_bracket: (
+                  star: '*'
+                  end_bracket: )
+            alias_expression:
+              alias_operator:
+                keyword: AS
+              naked_identifier: c
+        from_clause:
+          keyword: FROM
+          from_expression:
+            from_expression_element:
+              table_expression:
+                table_reference:
+                  naked_identifier: t
+    - pipe_operator_clause:
+        pipe_operator: '|>'
+        where_clause:
+          keyword: WHERE
+          expression:
+            column_reference:
+              naked_identifier: a
+            comparison_operator:
+              raw_comparison_operator: '>'
+            numeric_literal: '10'
+    - pipe_operator_clause:
+        pipe_operator: '|>'
+        group_and_orderby_clause:
+        - keyword: GROUP
+        - keyword: BY
+        - column_reference:
+            naked_identifier: a
+    - pipe_operator_clause:
+        pipe_operator: '|>'
+        orderby_clause:
+        - keyword: ORDER
+        - keyword: BY
+        - column_reference:
+            naked_identifier: c
+        - keyword: DESC
+- statement_terminator: ;
+- statement:
+    pipe_statement:
+      from_clause:
+        keyword: FROM
+        from_expression:
+          from_expression_element:
+            table_expression:
+              table_reference:
+                naked_identifier: Produce
+      pipe_operator_clause:
+        pipe_operator: '|>'
+        group_and_orderby_clause:
+        - keyword: GROUP
+        - keyword: BY
+        - column_reference:
+            naked_identifier: item
+- statement_terminator: ;
+- statement:
+    pipe_statement:
+    - from_clause:
+        keyword: FROM
+        from_expression:
+          from_expression_element:
+            table_expression:
+              table_reference:
+                naked_identifier: Produce
+    - pipe_operator_clause:
+        pipe_operator: '|>'
+        group_and_orderby_clause:
+        - keyword: GROUP
+        - keyword: BY
+        - column_reference:
+            naked_identifier: category
+        - comma: ','
+        - column_reference:
+            naked_identifier: item
+    - pipe_operator_clause:
+        pipe_operator: '|>'
+        orderby_clause:
+        - keyword: ORDER
+        - keyword: BY
+        - column_reference:
+            naked_identifier: category
+        - keyword: DESC
+        - comma: ','
+        - column_reference:
+            naked_identifier: item
+- statement_terminator: ;
+- statement:
+    pipe_statement:
+      from_clause:
+        keyword: FROM
+        from_expression:
+          from_expression_element:
+            table_expression:
+              table_reference:
+                naked_identifier: Produce
+      pipe_operator_clause:
+        pipe_operator: '|>'
+        group_and_orderby_clause:
+        - keyword: GROUP
+        - keyword: AND
+        - keyword: ORDER
+        - keyword: BY
+        - column_reference:
+            naked_identifier: item
+        - comma: ','
+        - column_reference:
+            naked_identifier: category
+        - keyword: DESC
 - statement_terminator: ;

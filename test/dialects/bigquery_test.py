@@ -186,3 +186,82 @@ def test_semi_structured_wildcard_parses(sql):
     """A wildcard ending an accessor chain parses, with EXCEPT/REPLACE."""
     parsed = Linter(dialect="bigquery").parse_string(sql)
     assert not parsed.violations
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        # A SELECT statement followed by a chain of pipe operators.
+        "SELECT a, COUNT(*) AS c FROM t\n"
+        "|> WHERE a > 10\n"
+        "|> GROUP BY a\n"
+        "|> ORDER BY c DESC\n",
+        # A FROM-first query with a standalone GROUP BY pipe operator.
+        "FROM Produce\n|> GROUP BY item\n",
+        # GROUP BY with multiple keys, followed by more operators.
+        "FROM Produce\n|> GROUP BY category, item\n|> ORDER BY category DESC, item\n",
+        # GROUP AND ORDER BY as a standalone pipe operator.
+        "FROM Produce\n|> GROUP AND ORDER BY item, category DESC\n",
+        # AGGREGATE combined with GROUP BY still parses.
+        "FROM Produce\n"
+        "|> AGGREGATE SUM(sales) AS total_sales GROUP BY item\n"
+        "|> ORDER BY total_sales DESC\n",
+    ],
+)
+def test_bigquery_pipe_statement_parses(sql):
+    """Pipe operator chains parse natively in the BigQuery dialect."""
+    parsed = Linter(dialect="bigquery").parse_string(sql)
+    assert not parsed.violations
+    tree = parsed.tree
+    assert tree
+    # The whole query is a single pipe statement.
+    pipe_statements = list(tree.recursive_crawl("pipe_statement"))
+    assert len(pipe_statements) == 1
+    # One clause per `|>` operator in the source.
+    pipe_clauses = list(tree.recursive_crawl("pipe_operator_clause"))
+    assert len(pipe_clauses) == sql.count("|>")
+    # Each operator clause retains its position in the source file.
+    for clause in pipe_clauses:
+        assert clause.pos_marker is not None
+    assert [clause.pos_marker.line_no for clause in pipe_clauses] == [
+        line_no
+        for line_no, line in enumerate(sql.splitlines(), start=1)
+        if line.startswith("|>")
+    ]
+
+
+def test_bigquery_pipe_statement_group_by_clause_type():
+    """A standalone `|> GROUP BY` parses as a group_and_orderby_clause."""
+    sql = "SELECT a FROM t\n|> GROUP BY a\n"
+    parsed = Linter(dialect="bigquery").parse_string(sql)
+    assert not parsed.violations
+    tree = parsed.tree
+    assert tree
+    group_clauses = list(tree.recursive_crawl("group_and_orderby_clause"))
+    assert len(group_clauses) == 1
+    # The clause sits inside a pipe operator clause, keeping position info.
+    assert group_clauses[0].pos_marker is not None
+    assert group_clauses[0].pos_marker.line_no == 2
+
+
+def test_bigquery_pipe_statement_rules():
+    """Existing layout and aliasing rules give sensible results on pipes."""
+    sql = (
+        "SELECT a, COUNT(*) AS c\n"
+        "FROM very_long_table_name AS this_alias_is_way_too_long\n"
+        "|> WHERE a > 10\n"
+        "|> GROUP BY a\n"
+        "|> ORDER BY c DESC\n"
+    )
+    config = FluffConfig(
+        configs={"rules": {"aliasing.length": {"max_alias_length": 5}}},
+        overrides={"dialect": "bigquery", "rules": "LT02,AL01,AL02,AL06"},
+    )
+    violations = Linter(config=config).lint_string(sql).get_violations()
+    # The only violation is the over-length table alias (AL06).
+    assert [(v.rule_code(), v.line_no) for v in violations] == [("AL06", 2)]
+
+    # A mis-indented pipe operator is flagged by the indentation rule.
+    misindented_sql = sql.replace("|> GROUP BY a", "  |> GROUP BY a")
+    violations = Linter(config=config).lint_string(misindented_sql).get_violations()
+    assert ("LT02", 4) in [(v.rule_code(), v.line_no) for v in violations]
